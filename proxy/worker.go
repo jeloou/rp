@@ -8,6 +8,36 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type stringCmd interface {
+	Result() (string, error)
+}
+
+type redisFetcher interface {
+	Get(key string) stringCmd
+	Close() error
+}
+
+type stringCmdImpl struct {
+	s *redis.StringCmd
+}
+
+func (sc *stringCmdImpl) Result() (string, error) {
+	return sc.s.Result()
+}
+
+type redisFetcherImpl struct {
+	c *redis.Client
+}
+
+func (rf *redisFetcherImpl) Get(key string) stringCmd {
+	sc := rf.c.Get(key)
+	return &stringCmdImpl{sc}
+}
+
+func (rf *redisFetcherImpl) Close() error {
+	return rf.c.Close()
+}
+
 type response struct {
 	code int
 	body string
@@ -19,8 +49,8 @@ type Job struct {
 }
 
 type worker struct {
-	client  *redis.Client
-	cache   *cache
+	client redisFetcher
+	cache  *cache
 
 	workers chan chan Job
 	jobs    chan Job
@@ -50,11 +80,10 @@ func (w *worker) run(ctx context.Context) {
 			v, err := w.client.Get(job.key).Result()
 			if err != nil {
 				log.WithFields(log.Fields{
-					"key": job.key,
+					"key":   job.key,
 					"error": err,
 				}).Error("error while querying redis")
 
-				
 				job.res <- &response{
 					code: http.StatusNotFound,
 				}
@@ -62,7 +91,7 @@ func (w *worker) run(ctx context.Context) {
 			}
 
 			log.WithFields(log.Fields{
-				"key": job.key,
+				"key":   job.key,
 				"value": v,
 			}).Debug("key fetched from redis")
 
@@ -77,13 +106,15 @@ func (w *worker) run(ctx context.Context) {
 
 func newWorker(redisAddr string, cache *cache, workers chan chan Job) (*worker, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
+		Addr: redisAddr,
 	})
+
+	ci := &redisFetcherImpl{client}
 
 	return &worker{
 		jobs:    make(chan Job),
 		workers: workers,
-		client:  client,
 		cache:   cache,
+		client:  ci,
 	}, nil
 }

@@ -1,6 +1,6 @@
 # rp (redis proxy)
 
-**rp** is a **twemproxy** (pronounced "two-em-proxy"), aka **nutcracker** is a fast and lightweight HTTP proxy for [redis](http://redis.io/) protocol. It was built to primarily to reduce the number of requests to a redis server using a local cache.
+**rp** is  a fast and lightweight HTTP proxy for [redis](http://redis.io/) protocol. It was built to primarily to reduce the number of requests to a redis server using a local cache.
 
 ## Building
 

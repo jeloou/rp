@@ -1,26 +1,26 @@
 package proxy
 
 import (
-	"time"
-	"sync"
 	"container/list"
+	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type entry struct {
 	key string
-        val string
-        exp time.Time
+	val string
+	exp time.Time
 }
 
 type cache struct {
-        m    map[string]*list.Element
-        l    *list.List
-	exp  time.Duration
-	cap  int
+	m   map[string]*list.Element
+	l   *list.List
+	exp time.Duration
+	cap int
 
-        mu sync.RWMutex
+	mu sync.RWMutex
 	w  *writer
 }
 
@@ -52,8 +52,8 @@ func (c *cache) set(k string, v string) {
 }
 
 type writer struct {
-	q  chan *entry
-	c  *cache
+	q chan *entry
+	c *cache
 }
 
 func (w *writer) write(e *entry) {
@@ -65,14 +65,16 @@ func (w *writer) write(e *entry) {
 	el, ok := c.m[e.key]
 	if !ok {
 		if c.l.Len() == c.cap {
-			c.l.Remove(c.l.Back())
+			b := c.l.Back()
+			delete(c.m, b.Value.(*entry).key)
+			c.l.Remove(b)
 		}
 
 		el = c.l.PushFront(e)
 		c.m[e.key] = el
 
 		log.WithFields(log.Fields{
-			"key": e.key,
+			"key":   e.key,
 			"value": e.val,
 		}).Debug("new key written into cache")
 		return
@@ -103,7 +105,6 @@ func (w *writer) del(e *entry) {
 func (w *writer) run() {
 	log.Debug("cache writer is running")
 
-
 	for e := range w.q {
 		if time.Now().After(e.exp) {
 			w.del(e)
@@ -122,19 +123,18 @@ func newWriter(c *cache, s int) *writer {
 }
 
 func newCache(cap int, exp time.Duration, s int) *cache {
-        m := make(map[string]*list.Element)
-        l := list.New()
+	m := make(map[string]*list.Element)
+	l := list.New()
 
 	c := &cache{
 		cap: cap,
 		exp: exp,
-	        m: m,
-	        l: l,
-        }
+		m:   m,
+		l:   l,
+	}
 
 	c.w = newWriter(c, s)
 	go c.w.run()
 
 	return c
 }
-

@@ -1,11 +1,11 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
-	"time"
-	"context"
 	"net/http"
+	"time"
 
 	"github.com/go-redis/redis"
 	log "github.com/sirupsen/logrus"
@@ -26,13 +26,12 @@ type Dispatcher struct {
 	jobs       chan Job
 	cache      *cache
 
-	redisAddr  string
-
+	redisAddr string
 }
 
 func (d *Dispatcher) Run() error {
 	client := redis.NewClient(&redis.Options{
-		Addr:     d.redisAddr,
+		Addr: d.redisAddr,
 	})
 
 	_, err := client.Ping().Result()
@@ -117,7 +116,6 @@ func handler(d *Dispatcher) http.Handler {
 	})
 }
 
-
 func (d *Dispatcher) Shutdown(ctx context.Context) error {
 	if ctx == nil {
 		panic("ctx must be provided")
@@ -136,7 +134,7 @@ func (d *Dispatcher) Shutdown(ctx context.Context) error {
 			return ctx.Err()
 		case <-t.C:
 			log.WithFields(log.Fields{
-				"workers left": d.maxWorkers-len(d.workers),
+				"workers left": d.maxWorkers - len(d.workers),
 			}).Info("checking if workers are done")
 
 			if len(d.workers) == d.maxWorkers {
@@ -154,25 +152,24 @@ func NewDispatcher(port string, redisAddr string, maxJobs uint, maxWorkers uint,
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wCtx, wCancel := context.WithCancel(context.Background())
- 
+
 	workers := make(chan chan Job, maxWorkers)
 	jobs := make(chan Job, maxJobs)
 
 	return &Dispatcher{
-		redisAddr:  redisAddr,
+		redisAddr: redisAddr,
 
 		cache:      newCache(cacheCap, exp, int(maxWorkers)),
 		maxWorkers: int(maxWorkers),
 		workers:    workers,
 
-		jobs:       jobs,
+		jobs: jobs,
 
-
-		wCtx:       wCtx,
-		wCancel:    wCancel,
-		ctx:        ctx,
-		cancel:     cancel,
-		errs:       errs,
-		srv:        srv,
+		wCtx:    wCtx,
+		wCancel: wCancel,
+		ctx:     ctx,
+		cancel:  cancel,
+		errs:    errs,
+		srv:     srv,
 	}, nil
 }

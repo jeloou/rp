@@ -1,12 +1,12 @@
 package main
 
 import (
+	"context"
 	"net"
 	"time"
-	"context"
 
-	"github.com/urfave/cli"
 	"github.com/jeloou/rp/proxy"
+	"github.com/urfave/cli"
 )
 
 type command struct {
@@ -54,6 +54,6 @@ func newCommand(ctx *cli.Context, errs chan<- error) (*command, error) {
 
 	return &command{
 		shutdownTimeout: shutdownTimeout,
-		dispatcher: d,
+		dispatcher:      d,
 	}, nil
 }
