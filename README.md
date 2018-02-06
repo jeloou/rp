@@ -4,7 +4,7 @@
 
 ## Building
 
-To build `rp` you must have a working Go install and [govendor](https://github.com/kardianos/govendor) then you can run:
+To build `rp` you must have a working Go install and then  you can run:
 
 ``` bash
 $ govendor build .
@@ -34,19 +34,55 @@ COMMANDS:
      help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --debug                           enable debug output for the logs
+   --debug                           enable debug output for the logs [$DEBUG]
    --key-expiry value, -k value      set a global expiry for keys stored in cache (default: "5s")
    --cache-capacity value, -c value  max numer of keys that will be kept in cache (default: 15000)
-   --redis-host value                domain of the redis host
-   --redis-port value                port of the redis host
+   --redis-host value                domain of the redis host (default: "localhost") [$REDIS_HOST]
+   --redis-port value                port of the redis host (default: "6379") [$REDIS_PORT]
+   --redis-server-port value         port for the redis proxy server to listen on (default: "6379") [$REDIS_SERVER_PROXY]
    --workers value, -w value         max number of workers to process requests (default: 1)
    --concurrency value, -C value     max number of concurrent clients (default: 30)
    --shutdown-timeout value          set the server max timeout to gracefully shutdown (default: "2s")
    --port value, -P value            HTTP server port (default: "3000")
-   --daemonize, -d                   run as a daemon
-   --pid value, -p value             set pid file
    --help, -h                        show help
    --version, -v                     print the version
+```
+
+## Usage
+
+An existing key can be fetched like this:
+
+```bash
+$ http get localhost:3000/?key=k00
+
+HTTP/1.1 200 OK
+Content-Length: 3
+Content-Type: text/plain; charset=utf-8
+Date: Mon, 05 Feb 2018 18:40:11 GMT
+
+v00
+```
+
+A missing key should return a `404`:
+
+```
+$ http get localhost:3000/?key=k01
+
+HTTP/1.1 404 Not Found
+Content-Length: 0
+Content-Type: text/plain; charset=utf-8
+Date: Tue, 06 Feb 2018 12:45:56 GMT
+```
+
+You can also use a redis-client to fetch keys:
+
+```bash
+
+$ redis-cli -p 6379 get k00
+"v00"
+
+$ redis-cli -p 6379 get k01
+(nil)
 ```
 
 ## Features
@@ -58,10 +94,11 @@ GLOBAL OPTIONS:
 + Supports LRU caching and non-blocking reads.
 + Cache can be configured to have a global expiry.
 + Keeps multiple connections to the redis server.
++ Supports redis protocol proxy on port 6379
 
 ## Overview
 
-*rp* consists of a `dispatcher`, `worker` and `cache`.
+**rp** consists of a `dispatcher`, `worker` and `cache`.
 
 A request is represented internally as a `job`. A `job` contains the `key` requested by the client and a channel that is used to send responses back to the HTTP handler.
 
@@ -81,13 +118,13 @@ The `writer` takes care of receiving the `entity` instances and writing to them 
 
 The `cache` is implemented using a `map` and a doubly-liked list. The `map` gives us fast access to the contents of the `cache` and the list keeps the records ordered by the Least Recently Used (LRU). Reading a `key` from the `cache` means moving the `entity` to the front of the list. But the list does not grow forever, when the max capacity of the `cache` is reached, the last item of the list is removed to make space for the new item.
 
-Errors are bubbled up using an `error`s channel. If an error is triggered by any of the upstream workers or a signal is receive from the OS, *rp* tries to shut down the server gracefully using a context. Failing to do some in a timely manner triggers the forceful shutdown.
+Errors are bubbled up using an `error`s channel. If an error is triggered by any of the upstream workers or a signal is receive from the OS, **rp** tries to shut down the server gracefully using a context. Failing to do some in a timely manner triggers the forceful shutdown.
 
-It can run as a daemon.
+It also works as a redis proxy, the only difference in that case is the handler used.
 
 ## Complexity
 
-The `cache` implementation has an expected O(1) average time complexity for all operations, but a worst case O(n). It uses a `map` to insert and lookup `keys` and a doubly-liked list to keep the things in order. Doubly-liked lists have a O(1) average time complexity for insertion and deletion.
+The `cache` implementation has an expected `O(1)` average time complexity for all operations, but a worst case `O(n)`. It uses a `map` to insert and lookup `keys` and a doubly-liked list to keep the things in order. Doubly-liked lists have a `O(1)` average time complexity for insertion and deletion.
 
 ## License
 

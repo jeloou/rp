@@ -31,6 +31,7 @@ func (c *command) Stop() error {
 }
 
 func newCommand(ctx *cli.Context, errs chan<- error) (*command, error) {
+	redisServerPort := ctx.GlobalString("redis-server-port")
 	redisAddr := net.JoinHostPort(ctx.GlobalString("redis-host"), ctx.GlobalString("redis-port"))
 	shutdownTimeout, err := time.ParseDuration(ctx.GlobalString("shutdown-timeout"))
 	if err != nil {
@@ -47,7 +48,7 @@ func newCommand(ctx *cli.Context, errs chan<- error) (*command, error) {
 		return nil, err
 	}
 
-	d, err := proxy.NewDispatcher(port, redisAddr, concurrency, workers, cacheCap, exp, errs)
+	d, err := proxy.NewDispatcher(port, redisAddr, redisServerPort, concurrency, workers, cacheCap, exp, errs)
 	if err != nil {
 		return nil, err
 	}

@@ -85,6 +85,12 @@ func newApp() *cli.App {
 			Value:  "6379",
 			EnvVar: "REDIS_PORT",
 		},
+		cli.StringFlag{
+			Name:   "redis-server-port",
+			Usage:  "port for the redis proxy server to listen on",
+			Value:  "6379",
+			EnvVar: "REDIS_SERVER_PROXY",
+		},
 		cli.UintFlag{
 			Name:  "workers,w",
 			Usage: "max number of workers to process requests",

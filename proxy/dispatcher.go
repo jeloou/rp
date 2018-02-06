@@ -29,7 +29,8 @@ type Dispatcher struct {
 	jobs       chan Job
 	cache      *cache
 
-	redisAddr string
+	redisServerPort string
+	redisAddr       string
 }
 
 func (d *Dispatcher) Run() error {
@@ -179,9 +180,9 @@ func (d *Dispatcher) Shutdown(ctx context.Context) error {
 	}
 }
 
-func NewDispatcher(port string, redisAddr string, maxJobs uint, maxWorkers uint, cacheCap int, exp time.Duration, errs chan<- error) (*Dispatcher, error) {
+func NewDispatcher(port string, redisAddr string, redisServerPort string, maxJobs uint, maxWorkers uint, cacheCap int, exp time.Duration, errs chan<- error) (*Dispatcher, error) {
 	redisSrv := &redisServer{
-		Addr: net.JoinHostPort("", "6380"),
+		Addr: net.JoinHostPort("", redisServerPort),
 	}
 
 	srv := &http.Server{
