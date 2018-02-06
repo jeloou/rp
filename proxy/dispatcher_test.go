@@ -84,7 +84,7 @@ func (s *SuiteDispatcher) SetupSuite() {
 		go w.run(wCtx)
 	}
 
-	s.ts = httptest.NewServer(handler(s.d))
+	s.ts = httptest.NewServer(httpHandler(s.d))
 	go s.d.dispatch()
 }
 

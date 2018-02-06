@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,7 +20,9 @@ type Dispatcher struct {
 	wCtx    context.Context
 	wCancel context.CancelFunc
 	errs    chan<- error
-	srv     *http.Server
+
+	redisSrv *redisServer
+	srv      *http.Server
 
 	maxWorkers int
 	workers    chan chan Job
@@ -57,12 +60,22 @@ func (d *Dispatcher) Run() error {
 		"workers": d.maxWorkers,
 	}).Debug("pool of workers started")
 
-	d.srv.Handler = handler(d)
+	d.srv.Handler = httpHandler(d)
 	go func() {
 		if err := d.srv.ListenAndServe(); err != nil {
 			log.WithFields(log.Fields{
 				"error": err,
 			}).Error("error starting server")
+			d.errs <- err
+		}
+	}()
+
+	d.redisSrv.Handler = redisHandler(d)
+	go func() {
+		if err := d.redisSrv.ListenAndServe(); err != nil {
+			log.WithFields(log.Fields{
+				"error": err,
+			}).Error("error starting redis server")
 			d.errs <- err
 		}
 	}()
@@ -85,7 +98,28 @@ func (d *Dispatcher) dispatch() {
 	}
 }
 
-func handler(d *Dispatcher) http.Handler {
+func redisHandler(d *Dispatcher) func(string) (string, error) {
+	return func(key string) (string, error) {
+		work := Job{
+			res: make(chan *response),
+			key: key,
+		}
+
+		select {
+		case d.jobs <- work:
+			res := <-work.res
+			if res.code == http.StatusNotFound {
+				return "", errors.New("key not found")
+			}
+
+			return res.body, nil
+		default:
+			return "", errors.New("service unavailable")
+		}
+	}
+}
+
+func httpHandler(d *Dispatcher) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -146,6 +180,10 @@ func (d *Dispatcher) Shutdown(ctx context.Context) error {
 }
 
 func NewDispatcher(port string, redisAddr string, maxJobs uint, maxWorkers uint, cacheCap int, exp time.Duration, errs chan<- error) (*Dispatcher, error) {
+	redisSrv := &redisServer{
+		Addr: net.JoinHostPort("", "6380"),
+	}
+
 	srv := &http.Server{
 		Addr: net.JoinHostPort("", port),
 	}
@@ -170,6 +208,8 @@ func NewDispatcher(port string, redisAddr string, maxJobs uint, maxWorkers uint,
 		ctx:     ctx,
 		cancel:  cancel,
 		errs:    errs,
-		srv:     srv,
+
+		redisSrv: redisSrv,
+		srv:      srv,
 	}, nil
 }

@@ -15,8 +15,7 @@ run: check-deps
 
 test: check-deps
 	@docker-compose up --build -d
-	docker exec -it rp govendor test github.com/jeloou/rp/proxy -- -v
-	govendor test github.com/jeloou/rp/proxy -v 2>/dev/null
+	docker exec -it rp govendor test github.com/jeloou/rp/proxy -v
 	@docker-compose rm -s -f
 
 clean:
