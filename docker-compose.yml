@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  redis:
+    image: redis
+    container_name: rp_redis
+  rp:
+    build: .
+    container_name: rp
+    command: rp
+    environment:
+      - REDIS_HOST=redis
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
